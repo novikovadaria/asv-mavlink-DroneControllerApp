@@ -10,10 +10,10 @@ namespace DroneControllerApp.DroneControllerServices
 {
     public class DroneFactory : IDroneFactory
     {
-        private readonly DroneDiscoveryConfig _config;
+        private readonly DroneFactoryConfig _config;
         private readonly ILogger<DroneFactory> _logger;
 
-        public DroneFactory(DroneDiscoveryConfig config, ILogger<DroneFactory>? logger = null)
+        public DroneFactory(DroneFactoryConfig config, ILogger<DroneFactory>? logger = null)
         {
             _config = config;
             _logger = logger ?? LoggerFactory

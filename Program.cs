@@ -5,7 +5,7 @@ using DroneControllerApp.DroneConfig;
 using DroneControllerApp.DroneControllerServices;
 using DroneControllerApp.DroneServices;
 
-var config = new DroneDiscoveryConfig
+var config = new DroneFactoryConfig
 {
     DeviceTimeoutMs = 1500,
     DeviceCheckIntervalMs = 20000,
