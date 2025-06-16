@@ -7,22 +7,18 @@ using R3;
 
 namespace DroneConsoleApp.Services
 {
-    public class DroneController : IDisposable, IAsyncDisposable
+    public class DroneController : IDisposable
     {
-        private readonly IProtocolRouter _router;
         private readonly ILogger<DroneController> _logger;
-        private IDeviceExplorer? _deviceExplorer;
-        private IClientDevice? _drone;
+        private readonly IClientDevice? _drone;
         private IPositionClient? _position;
         private IHeartbeatClient? _heartbeat;
         private ControlClient? _control;
-        private CancellationTokenSource? _cts;
+        private readonly CancellationTokenSource? _cts;
 
-        public DroneController(IDeviceExplorer deviceExplorer, IClientDevice drone, IProtocolRouter router)
+        public DroneController(IClientDevice drone)
         {
-            _router = router;
             _drone = drone;
-            _deviceExplorer = deviceExplorer;
 
             _logger = LoggerFactory
                 .Create(builder =>
@@ -40,9 +36,12 @@ namespace DroneConsoleApp.Services
         {
             if (_drone == null) throw new InvalidOperationException("Drone not assigned");
 
-            _control = _drone.GetMicroservice<ControlClient>();
-            _position = _drone.GetMicroservice<IPositionClient>();
-            _heartbeat = _drone.GetMicroservice<IHeartbeatClient>() ;
+            _control = _drone.GetMicroservice<ControlClient>()
+                ?? throw new InvalidOperationException("ControlClient microservice not found");
+            _position = _drone.GetMicroservice<IPositionClient>()
+                ?? throw new InvalidOperationException("IPositionClient microservice not found");
+            _heartbeat = _drone.GetMicroservice<IHeartbeatClient>()
+                ?? throw new InvalidOperationException("IHeartbeatClient microservice not found");
 
             SubscribeToPosition();
         }
@@ -51,6 +50,9 @@ namespace DroneConsoleApp.Services
         {
             if (_drone == null)
                 throw new InvalidOperationException("Drone is not connected");
+
+            if (_control == null)
+                throw new InvalidOperationException("ControlClient is not initialized");
 
             var cancel = _cts?.Token ?? CancellationToken.None;
 
@@ -84,11 +86,22 @@ namespace DroneConsoleApp.Services
             if (_drone == null)
                 throw new InvalidOperationException("Drone is not connected");
 
+            if (_control == null)
+                throw new InvalidOperationException("ControlClient is not initialized");
+
+            var currentPosition = _position?.GlobalPosition.CurrentValue;
+
+            double newLatitude = currentPosition?.Lat + target.Latitude ?? 0;
+            double newLongitude = currentPosition?.Lon + target.Longitude ?? 0;
+            double newAltitude = currentPosition?.Alt + target.Altitude ?? 0;
+
+            var adjustedTarget = new GeoPoint(newLatitude, newLongitude, newAltitude);
+
             _logger.LogInformation("Switching to GUIDED mode...");
             await _control.SetGuidedMode(cancel);
 
-            _logger.LogInformation($"Flying to: Lat={target.Latitude}, Lon={target.Longitude}, Alt={target.Altitude}");
-            await _control.GoTo(target, cancel);
+            _logger.LogInformation($"Flying to: Lat={adjustedTarget.Latitude}, Lon={adjustedTarget.Longitude}, Alt={adjustedTarget.Altitude}");
+            await _control.GoTo(adjustedTarget, cancel);
 
             _logger.LogInformation("Reached target point.");
             _logger.LogInformation("Landing...");
@@ -96,10 +109,9 @@ namespace DroneConsoleApp.Services
             _logger.LogInformation("Landed.");
         }
 
+
         private void SubscribeToPosition()
         {
-            _positionSubscription?.Dispose();
-
             if (_position == null)
             {
                 _logger.LogError("PositionClient not available. Skipping position subscription.");
@@ -110,9 +122,9 @@ namespace DroneConsoleApp.Services
 
             _positionSubscription = _position.GlobalPosition.Subscribe(pos =>
             {
-                double latitude = MavlinkTypesHelper.LatLonFromInt32E7ToDegDouble(pos.Lat);
-                double longitude = MavlinkTypesHelper.LatLonFromInt32E7ToDegDouble(pos.Lon);
-                double altitude = MavlinkTypesHelper.AltFromMmToDoubleMeter(pos.Alt);
+                double latitude = MavlinkTypesHelper.LatLonFromInt32E7ToDegDouble(pos?.Lat ?? 0);
+                double longitude = MavlinkTypesHelper.LatLonFromInt32E7ToDegDouble(pos?.Lat ?? 0);
+                double altitude = MavlinkTypesHelper.AltFromMmToDoubleMeter(pos?.Lat ?? 0);
 
                 _logger.LogInformation($"Updated position: Lat={latitude:F6}, Lon={longitude:F6}, Alt={altitude:F2} m");
             });
@@ -135,7 +147,6 @@ namespace DroneConsoleApp.Services
             if (disposing)
             {
                 _positionSubscription?.Dispose();
-                _deviceExplorer?.Dispose();
                 _heartbeat?.Dispose();
                 _drone?.Dispose();
                 _control?.Dispose();
@@ -145,18 +156,6 @@ namespace DroneConsoleApp.Services
             }
 
             _disposed = true;
-        }
-
-        public async ValueTask DisposeAsync()
-        {
-            if (_disposed) return;
-
-            if (_router is IAsyncDisposable asyncDisposable)
-            {
-                await asyncDisposable.DisposeAsync();
-            }
-
-            Dispose(disposing: true);
         }
         #endregion
     }

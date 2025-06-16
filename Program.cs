@@ -15,12 +15,12 @@ var config = new DroneFactoryConfig
 };
 
 RouterFactory routerProvider = new RouterFactory();
-DroneFactory droneFactory = new DroneFactory(config);
-
 var router = routerProvider.CreateRouter();
-var (drone, explorer) = await droneFactory.FindAndPrepareDrone(router);
 
-using var droneController = new DroneController(explorer, drone, router);
+DroneFactory droneFactory = new DroneFactory(router);
+var (drone, explorer) = await droneFactory.FindAndPrepareDrone(config);
+
+using var droneController = new DroneController(drone);
 var mission = new MissionController(droneController);
 
 try
@@ -32,6 +32,9 @@ try
     GeoPoint target = MavlinkTypesHelper.FromInt32ToGeoPoint(lat, lon, alt);
 
     await mission.Run(20.0, target);
+
+    explorer.Dispose();
+    router.Dispose();
 }
 catch (Exception ex)
 {
