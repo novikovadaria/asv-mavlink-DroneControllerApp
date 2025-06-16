@@ -1,33 +1,29 @@
 ﻿using Asv.Common;
 using Asv.IO;
 using Asv.Mavlink;
+using DroneControllerApp.View;
 using Microsoft.Extensions.Logging;
 using R3;
+using System.Xml.Linq;
 
 
 namespace DroneConsoleApp.Services
 {
     public class DroneController : IDisposable
     {
-        private readonly ILogger<DroneController> _logger;
         private readonly IClientDevice? _drone;
+        private readonly ConsoleView _consoleView;
+        private IModeClient? _mode;
         private IPositionClient? _position;
         private IHeartbeatClient? _heartbeat;
         private ControlClient? _control;
         private readonly CancellationTokenSource? _cts;
 
+
         public DroneController(IClientDevice drone)
         {
             _drone = drone;
-
-            _logger = LoggerFactory
-                .Create(builder =>
-                {
-                    builder
-                        .AddConsole()
-                        .SetMinimumLevel(LogLevel.Information); 
-                })
-                .CreateLogger<DroneController>();
+            _consoleView = new ConsoleView();
 
             InitServices();
         }
@@ -42,6 +38,8 @@ namespace DroneConsoleApp.Services
                 ?? throw new InvalidOperationException("IPositionClient microservice not found");
             _heartbeat = _drone.GetMicroservice<IHeartbeatClient>()
                 ?? throw new InvalidOperationException("IHeartbeatClient microservice not found");
+            _mode = _drone.GetMicroservice<IModeClient>()
+                ?? throw new InvalidOperationException("IModeClient microservice not found");
 
             SubscribeToPosition();
         }
@@ -56,29 +54,21 @@ namespace DroneConsoleApp.Services
 
             var cancel = _cts?.Token ?? CancellationToken.None;
 
-            _logger.LogInformation("Switching to GUIDED mode...");
             await _control.SetGuidedMode(cancel);
-            await Task.Delay(TimeSpan.FromSeconds(5), cancel);
 
-            _logger.LogInformation($"Taking off to {altitude} meters...");
+            if (_mode == null)
+                throw new InvalidOperationException("ModeClient is not initialized");
+
+            await _mode.CurrentMode
+                .SelectMany(_ => _control.IsGuidedMode(cancel).AsTask().ToObservable())
+                .Where(isGuided => isGuided)
+                .FirstAsync(cancel);
+
+            _consoleView.ShowTakingOff(altitude);
+
             await _control.TakeOff(altitude, cancel);
+
             await Task.Delay(TimeSpan.FromSeconds(5), cancel);
-
-            _logger.LogInformation("Takeoff complete. Flying to target...");
-
-            var currentPos = _position?.GlobalPosition.CurrentValue;
-
-            double currentLat = currentPos?.Lat / 1_000_000.0 ?? 0;
-            double currentLon = currentPos?.Lon / 1_000_000.0 ?? 0;
-            double currentAlt = currentPos?.Alt ?? 0;
-
-            _logger.LogInformation($"Current position: Lat={currentLat:F6}, Lon={currentLon:F6}, Alt={currentAlt:F2} m");
-
-            int latMicro = (int)(55.7558 * 1_000_000);
-            int lonMicro = (int)(37.6173 * 1_000_000);
-
-            var target = new GeoPoint(latMicro, lonMicro, currentAlt);
-            _logger.LogInformation($"Target position:  Lat={target.Latitude:F6}, Lon={target.Longitude:F6}, Alt={target.Altitude:F2} m");
         }
 
         public async Task FlyToAndLand(GeoPoint target, CancellationToken cancel)
@@ -96,37 +86,26 @@ namespace DroneConsoleApp.Services
             double newAltitude = currentPosition?.Alt + target.Altitude ?? 0;
 
             var adjustedTarget = new GeoPoint(newLatitude, newLongitude, newAltitude);
-
-            _logger.LogInformation("Switching to GUIDED mode...");
+            
             await _control.SetGuidedMode(cancel);
-
-            _logger.LogInformation($"Flying to: Lat={adjustedTarget.Latitude}, Lon={adjustedTarget.Longitude}, Alt={adjustedTarget.Altitude}");
             await _control.GoTo(adjustedTarget, cancel);
-
-            _logger.LogInformation("Reached target point.");
-            _logger.LogInformation("Landing...");
             await _control.DoLand(cancel);
-            _logger.LogInformation("Landed.");
+
+            _consoleView.ShowLanded();
         }
 
 
         private void SubscribeToPosition()
         {
-            if (_position == null)
-            {
-                _logger.LogError("PositionClient not available. Skipping position subscription.");
-                return;
-            }
-
-            _logger.LogInformation("Subscribing to drone position updates...");
+            if (_position == null) return;
 
             _positionSubscription = _position.GlobalPosition.Subscribe(pos =>
             {
                 double latitude = MavlinkTypesHelper.LatLonFromInt32E7ToDegDouble(pos?.Lat ?? 0);
-                double longitude = MavlinkTypesHelper.LatLonFromInt32E7ToDegDouble(pos?.Lat ?? 0);
-                double altitude = MavlinkTypesHelper.AltFromMmToDoubleMeter(pos?.Lat ?? 0);
+                double longitude = MavlinkTypesHelper.LatLonFromInt32E7ToDegDouble(pos?.Lon ?? 0);
+                double altitude = MavlinkTypesHelper.AltFromMmToDoubleMeter(pos?.Alt ?? 0);
 
-                _logger.LogInformation($"Updated position: Lat={latitude:F6}, Lon={longitude:F6}, Alt={altitude:F2} m");
+                _consoleView.ShowPosition(latitude, longitude, altitude);
             });
         }
 
@@ -148,6 +127,7 @@ namespace DroneConsoleApp.Services
             {
                 _positionSubscription?.Dispose();
                 _heartbeat?.Dispose();
+                _mode?.Dispose();
                 _drone?.Dispose();
                 _control?.Dispose();
                 _position?.Dispose();

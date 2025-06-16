@@ -11,20 +11,10 @@ namespace DroneControllerApp.DroneControllerServices
     public class DroneFactory : IDroneFactory
     {
         private readonly IProtocolRouter _router;
-        private readonly ILogger<DroneFactory> _logger;
 
-        public DroneFactory(IProtocolRouter router, ILogger<DroneFactory>? logger = null)
+        public DroneFactory(IProtocolRouter router)
         {
             _router = router ?? throw new ArgumentNullException(nameof(router));
-
-            _logger = logger ?? LoggerFactory
-                .Create(builder =>
-                {
-                    builder
-                        .AddConsole() 
-                        .SetMinimumLevel(LogLevel.Information); 
-                })
-                .CreateLogger<DroneFactory>();
         }
 
         public async Task<(IClientDevice drone, IDeviceExplorer explorer)> FindAndPrepareDrone(DroneFactoryConfig config)
@@ -68,8 +58,6 @@ namespace DroneControllerApp.DroneControllerServices
                 throw new Exception("Drone not found");
             }
 
-            _logger.LogInformation("Drone found: {DroneName}", drone.Name);
-
             var readyTcs = new TaskCompletionSource();
             using var cancelReg2 = cts.Token.Register(() => readyTcs.TrySetCanceled());
             using var sub2 = drone.State
@@ -82,7 +70,6 @@ namespace DroneControllerApp.DroneControllerServices
                 });
 
             await readyTcs.Task;
-            _logger.LogInformation("Drone initialized: {DroneName}", drone.Name);
 
             return (drone, deviceExplorer);
         }
