@@ -1,9 +1,7 @@
 ﻿using Asv.Common;
-using Asv.Mavlink;
 using DroneConsoleApp.Services;
 using DroneControllerApp.DroneConfig;
 using DroneControllerApp.DroneControllerServices;
-using DroneControllerApp.DroneServices;
 using DroneControllerApp.View;
 
 var config = new DroneFactoryConfig
@@ -15,15 +13,10 @@ var config = new DroneFactoryConfig
     ComponentId = 255
 };
 
-RouterFactory routerProvider = new RouterFactory();
-var router = routerProvider.CreateRouter();
-
-var droneFactory = new DroneFactory(router);
-var explorer = droneFactory.CreateExplorer(config);
-
+var droneFactory = new DroneFactory();
 try
 {
-    var drone = await droneFactory.FindAndPrepareDrone(explorer, config.DiscoveryTimeout);
+    var drone = await droneFactory.FindAndPrepareDrone(config);
     using var droneController = new DroneController(drone, new ConsoleView());
 
     GeoPoint target = new GeoPoint(55.7558, 37.6173, 20.0);
@@ -31,6 +24,5 @@ try
 }
 finally
 {
-    explorer.Dispose();
-    router.Dispose();
+    droneFactory.Dispose();
 }

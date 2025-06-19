@@ -7,17 +7,28 @@ using ObservableCollections;
 using R3;
 namespace DroneControllerApp.DroneControllerServices
 {
-    public class DroneFactory : IDroneFactory
+    public class DroneFactory : IDroneFactory, IDisposable
     {
-        private readonly IProtocolRouter _router;
+        private IProtocolRouter _router;
+        private IDeviceExplorer _explorer;
 
-        public DroneFactory(IProtocolRouter router)
+        private IDeviceExplorer CreateExplorer(DroneFactoryConfig config)
         {
-            _router = router ?? throw new ArgumentNullException(nameof(router));
-        }
+            var protocol = Protocol.Create(builder =>
+            {
+                builder.RegisterMavlinkV2Protocol();
+                builder.Features.RegisterBroadcastFeature<MavlinkMessage>();
+                builder.Formatters.RegisterSimpleFormatter();
+            });
 
-        public IDeviceExplorer CreateExplorer(DroneFactoryConfig config)
-        {
+            _router = protocol.CreateRouter("ROUTER");
+
+            _router.AddTcpClientPort(p =>
+            {
+                p.Host = "127.0.0.1";
+                p.Port = 5760;
+            });
+
             var seq = new PacketSequenceCalculator();
             var identity = new MavlinkIdentity(config.SystemId, config.ComponentId);
 
@@ -35,15 +46,17 @@ namespace DroneControllerApp.DroneControllerServices
             });
         }
 
-        public async Task<IClientDevice> FindAndPrepareDrone(IDeviceExplorer explorer, TimeSpan timeout)
+        public async Task<IClientDevice> FindAndPrepareDrone(DroneFactoryConfig config)
         {
-            using var cts = new CancellationTokenSource(timeout, TimeProvider.System);
+            _explorer = CreateExplorer(config);
+
+            using var cts = new CancellationTokenSource(config.DiscoveryTimeout, TimeProvider.System);
 
             IClientDevice? drone = null;
 
             var foundTcs = new TaskCompletionSource();
             using var cancelReg1 = cts.Token.Register(() => foundTcs.TrySetCanceled());
-            using var sub1 = explorer.Devices
+            using var sub1 = _explorer.Devices
                 .ObserveAdd()
                 .Take(1)
                 .Subscribe(kvp =>
@@ -71,5 +84,10 @@ namespace DroneControllerApp.DroneControllerServices
             return drone;
         }
 
+        public void Dispose()
+        {
+            _router?.Dispose();
+            _explorer?.Dispose();
+        }
     }
 }

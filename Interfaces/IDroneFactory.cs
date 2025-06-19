@@ -6,6 +6,6 @@ namespace DroneControllerApp.Interfaces
 {
     public interface IDroneFactory
     {
-        Task<IClientDevice> FindAndPrepareDrone(IDeviceExplorer explorer, TimeSpan timeout);
+        Task<IClientDevice> FindAndPrepareDrone(DroneFactoryConfig config);
     }
 }
