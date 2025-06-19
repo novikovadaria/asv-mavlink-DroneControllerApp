@@ -5,7 +5,6 @@ using DroneControllerApp.DroneConfig;
 using DroneControllerApp.Interfaces;
 using ObservableCollections;
 using R3;
-using Microsoft.Extensions.Logging;
 namespace DroneControllerApp.DroneControllerServices
 {
     public class DroneFactory : IDroneFactory
