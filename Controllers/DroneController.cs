@@ -39,12 +39,10 @@ namespace DroneConsoleApp.Services
         {
             await _control.SetGuidedMode(cancel);
 
-            await _mode.CurrentMode
-                .SelectMany(_ => _control.IsGuidedMode(cancel).AsTask().ToObservable())
-                .Where(isGuided => isGuided)
-                .FirstAsync(cancel);
-
-            await _control.TakeOff(altitude, cancel);
+            using var sub = _mode.CurrentMode 
+                .Where(mode => mode == ArduCopterMode.Guided)
+                .Take(1) 
+                .SubscribeAwait(async (_, ct) => await _control.TakeOff(altitude, ct));
 
             await Task.Delay(TimeSpan.FromSeconds(5), cancel);
         }
@@ -52,7 +50,12 @@ namespace DroneConsoleApp.Services
         public async Task FlyToAndLand(GeoPoint target, CancellationToken cancel)
         {
             await _control.SetGuidedMode(cancel);
-            await _control.GoTo(target, cancel);
+
+            using var sub = _mode.CurrentMode
+                .Where(mode => mode == ArduCopterMode.Guided)
+                .Take(1)
+                .SubscribeAwait(async (_, ct) => await _control.GoTo(target, cancel));
+
             await _control.DoLand(cancel);
 
             _consoleView.ShowLanded();
