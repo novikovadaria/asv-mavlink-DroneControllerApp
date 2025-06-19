@@ -18,10 +18,10 @@ namespace DroneConsoleApp.Services
         private IDisposable? _positionSubscription;
         private bool _disposed;
 
-        public DroneController(IClientDevice drone)
+        public DroneController(IClientDevice drone, ConsoleView consoleView)
         {
             _drone = drone ?? throw new ArgumentNullException(nameof(drone));
-            _consoleView = new ConsoleView();
+            _consoleView = consoleView;
 
             _control = _drone.GetMicroservice<ControlClient>()
                 ?? throw new InvalidOperationException("ControlClient microservice not found");

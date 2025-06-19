@@ -4,6 +4,7 @@ using DroneConsoleApp.Services;
 using DroneControllerApp.DroneConfig;
 using DroneControllerApp.DroneControllerServices;
 using DroneControllerApp.DroneServices;
+using DroneControllerApp.View;
 
 var config = new DroneFactoryConfig
 {
@@ -20,7 +21,7 @@ var router = routerProvider.CreateRouter();
 DroneFactory droneFactory = new DroneFactory(router);
 var (drone, explorer) = await droneFactory.FindAndPrepareDrone(config);
 
-using var droneController = new DroneController(drone);
+using var droneController = new DroneController(drone, new ConsoleView());
 var mission = new MissionController(droneController);
 
 try
