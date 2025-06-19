@@ -22,7 +22,6 @@ DroneFactory droneFactory = new DroneFactory(router);
 var (drone, explorer) = await droneFactory.FindAndPrepareDrone(config);
 
 using var droneController = new DroneController(drone, new ConsoleView());
-var mission = new MissionController(droneController);
 
 try
 {
@@ -32,7 +31,7 @@ try
 
     GeoPoint target = new GeoPoint(lat, lon, alt); 
 
-    await mission.Run(20.0, target);
+    await droneController.Run(20.0, target);
 
     explorer.Dispose();
     router.Dispose();

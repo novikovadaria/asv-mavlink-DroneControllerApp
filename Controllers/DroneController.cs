@@ -35,6 +35,12 @@ namespace DroneConsoleApp.Services
             SubscribeToPosition();
         }
 
+        public async Task Run(double altitude, GeoPoint target)
+        {
+            await TakeOff(altitude, CancellationToken.None);
+            await FlyToAndLand(target, CancellationToken.None);
+        }
+
         public async Task TakeOff(double altitude, CancellationToken cancel)
         {
             await _control.SetGuidedMode(cancel);
