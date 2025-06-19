@@ -18,25 +18,19 @@ var config = new DroneFactoryConfig
 RouterFactory routerProvider = new RouterFactory();
 var router = routerProvider.CreateRouter();
 
-DroneFactory droneFactory = new DroneFactory(router);
-var (drone, explorer) = await droneFactory.FindAndPrepareDrone(config);
-
-using var droneController = new DroneController(drone, new ConsoleView());
+var droneFactory = new DroneFactory(router);
+var explorer = droneFactory.CreateExplorer(config);
 
 try
 {
-    double lat = 55.7558;
-    double lon = 37.6173;
-    double alt = 20.0;
+    var drone = await droneFactory.FindAndPrepareDrone(explorer, config.DiscoveryTimeout);
+    using var droneController = new DroneController(drone, new ConsoleView());
 
-    GeoPoint target = new GeoPoint(lat, lon, alt); 
-
+    GeoPoint target = new GeoPoint(55.7558, 37.6173, 20.0);
     await droneController.Run(20.0, target);
-
+}
+finally
+{
     explorer.Dispose();
     router.Dispose();
-}
-catch (Exception ex)
-{
-    Console.WriteLine($"Mission failed: {ex.Message}");
 }

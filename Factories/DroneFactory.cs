@@ -16,31 +16,34 @@ namespace DroneControllerApp.DroneControllerServices
             _router = router ?? throw new ArgumentNullException(nameof(router));
         }
 
-        public async Task<(IClientDevice drone, IDeviceExplorer explorer)> FindAndPrepareDrone(DroneFactoryConfig config)
+        public IDeviceExplorer CreateExplorer(DroneFactoryConfig config)
         {
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20), TimeProvider.System);
-
             var seq = new PacketSequenceCalculator();
             var identity = new MavlinkIdentity(config.SystemId, config.ComponentId);
 
-            var deviceExplorer = DeviceExplorer.Create(_router, builder =>
+            return DeviceExplorer.Create(_router, builder =>
             {
-                builder.SetConfig(new ClientDeviceBrowserConfig()
+                builder.SetConfig(new ClientDeviceBrowserConfig
                 {
                     DeviceTimeoutMs = config.DeviceTimeoutMs,
                     DeviceCheckIntervalMs = config.DeviceCheckIntervalMs,
                 });
                 builder.Factories.RegisterDefaultDevices(
-                    new MavlinkIdentity(identity.SystemId, identity.ComponentId),
+                    identity,
                     seq,
                     new InMemoryConfiguration());
             });
+        }
+
+        public async Task<IClientDevice> FindAndPrepareDrone(IDeviceExplorer explorer, TimeSpan timeout)
+        {
+            using var cts = new CancellationTokenSource(timeout, TimeProvider.System);
 
             IClientDevice? drone = null;
 
             var foundTcs = new TaskCompletionSource();
             using var cancelReg1 = cts.Token.Register(() => foundTcs.TrySetCanceled());
-            using var sub1 = deviceExplorer.Devices
+            using var sub1 = explorer.Devices
                 .ObserveAdd()
                 .Take(1)
                 .Subscribe(kvp =>
@@ -52,10 +55,7 @@ namespace DroneControllerApp.DroneControllerServices
             await foundTcs.Task;
 
             if (drone is null)
-            {
-                await deviceExplorer.DisposeAsync();
                 throw new Exception("Drone not found");
-            }
 
             var readyTcs = new TaskCompletionSource();
             using var cancelReg2 = cts.Token.Register(() => readyTcs.TrySetCanceled());
@@ -63,14 +63,13 @@ namespace DroneControllerApp.DroneControllerServices
                 .Subscribe(x =>
                 {
                     if (x == ClientDeviceState.Complete)
-                    {
                         readyTcs.TrySetResult();
-                    }
                 });
 
             await readyTcs.Task;
 
-            return (drone, deviceExplorer);
+            return drone;
         }
+
     }
 }
