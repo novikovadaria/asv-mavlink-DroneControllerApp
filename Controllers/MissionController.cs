@@ -12,7 +12,7 @@ namespace DroneConsoleApp.Services
 
         public async Task Run(double altitude, GeoPoint target)
         {
-            await _controller.TakeOff(altitude);
+            await _controller.TakeOff(altitude, CancellationToken.None);
             await _controller.FlyToAndLand(target, CancellationToken.None);
         }
     }

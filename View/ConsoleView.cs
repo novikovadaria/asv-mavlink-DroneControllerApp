@@ -12,12 +12,6 @@
             Console.WriteLine(); 
         }
 
-        public void ShowTakingOff(double altitude)
-        {
-            Console.SetCursorPosition(0, 5); 
-            Console.WriteLine($"TAKING OFF to {altitude:F1} m       ");
-        }
-
         public void ShowLanded()
         {
             Console.SetCursorPosition(0, 6);

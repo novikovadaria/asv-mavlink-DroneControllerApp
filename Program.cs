@@ -25,11 +25,11 @@ var mission = new MissionController(droneController);
 
 try
 {
-    int lat = MavlinkTypesHelper.LatLonDegDoubleToFromInt32E7To(55.7558);
-    int lon = MavlinkTypesHelper.LatLonDegDoubleToFromInt32E7To(37.6173);
-    int alt = MavlinkTypesHelper.AltFromDoubleMeterToInt32Mm(20);
+    double lat = 55.7558;
+    double lon = 37.6173;
+    double alt = 20.0;
 
-    GeoPoint target = MavlinkTypesHelper.FromInt32ToGeoPoint(lat, lon, alt);
+    GeoPoint target = new GeoPoint(lat, lon, alt); 
 
     await mission.Run(20.0, target);
 

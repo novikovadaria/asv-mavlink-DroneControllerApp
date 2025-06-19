@@ -44,8 +44,6 @@ namespace DroneConsoleApp.Services
                 .Where(isGuided => isGuided)
                 .FirstAsync(cancel);
 
-            _consoleView.ShowTakingOff(altitude);
-
             await _control.TakeOff(altitude, cancel);
 
             await Task.Delay(TimeSpan.FromSeconds(5), cancel);
@@ -53,17 +51,8 @@ namespace DroneConsoleApp.Services
 
         public async Task FlyToAndLand(GeoPoint target, CancellationToken cancel)
         {
-            var currentPosition = _position.GlobalPosition.CurrentValue
-                ?? throw new InvalidOperationException("Current position is not available");
-
-            double newLatitude = currentPosition.Lat + target.Latitude;
-            double newLongitude = currentPosition.Lon + target.Longitude;
-            double newAltitude = currentPosition.Alt + target.Altitude;
-
-            var adjustedTarget = new GeoPoint(newLatitude, newLongitude, newAltitude);
-
             await _control.SetGuidedMode(cancel);
-            await _control.GoTo(adjustedTarget, cancel);
+            await _control.GoTo(target, cancel);
             await _control.DoLand(cancel);
 
             _consoleView.ShowLanded();
