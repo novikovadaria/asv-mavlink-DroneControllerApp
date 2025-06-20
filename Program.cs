@@ -17,7 +17,7 @@ var droneFactory = new DroneFactory();
 try
 {
     var drone = await droneFactory.FindAndPrepareDrone(config);
-    using var droneController = new DroneController(drone, new ConsoleView());
+    using var droneController = new DroneController(drone, new ConsolePositionObserver());
 
     GeoPoint target = new GeoPoint(55.7558, 37.6173, 20.0);
     await droneController.Run(20.0, target);

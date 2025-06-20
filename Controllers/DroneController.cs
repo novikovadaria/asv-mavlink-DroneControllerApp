@@ -9,7 +9,7 @@ namespace DroneConsoleApp.Services
     public class DroneController : IDisposable
     {
         private readonly IClientDevice _drone;
-        private readonly ConsoleView _consoleView;
+        private readonly ConsolePositionObserver _positionObserver;
         private readonly IModeClient _mode;
         private readonly IPositionClient _position;
         private readonly IHeartbeatClient _heartbeat;
@@ -18,11 +18,10 @@ namespace DroneConsoleApp.Services
         private IDisposable? _positionSubscription;
         private bool _disposed;
 
-        public DroneController(IClientDevice drone, ConsoleView consoleView)
+        public DroneController(IClientDevice drone, ConsolePositionObserver positionObserver)
         {
             _drone = drone ?? throw new ArgumentNullException(nameof(drone));
-            _consoleView = consoleView;
-
+         
             _control = _drone.GetMicroservice<ControlClient>()
                 ?? throw new InvalidOperationException("ControlClient microservice not found");
             _position = _drone.GetMicroservice<IPositionClient>()
@@ -31,6 +30,8 @@ namespace DroneConsoleApp.Services
                 ?? throw new InvalidOperationException("IHeartbeatClient microservice not found");
             _mode = _drone.GetMicroservice<IModeClient>()
                 ?? throw new InvalidOperationException("IModeClient microservice not found");
+
+            _positionObserver = positionObserver;
 
             SubscribeToPosition();
         }
@@ -64,7 +65,7 @@ namespace DroneConsoleApp.Services
 
             await _control.DoLand(cancel);
 
-            _consoleView.ShowLanded();
+            _positionObserver.OnLanded();
         }
 
         private void SubscribeToPosition()
@@ -75,7 +76,7 @@ namespace DroneConsoleApp.Services
                 double longitude = MavlinkTypesHelper.LatLonFromInt32E7ToDegDouble(pos?.Lon ?? 0);
                 double altitude = MavlinkTypesHelper.AltFromMmToDoubleMeter(pos?.Alt ?? 0);
 
-                _consoleView.ShowPosition(latitude, longitude, altitude);
+                _positionObserver.OnPositionUpdate(latitude, longitude, altitude);
             });
         }
 
