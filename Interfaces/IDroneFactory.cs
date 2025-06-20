@@ -1,6 +1,5 @@
 ﻿using Asv.IO;
 using DroneControllerApp.DroneConfig;
-using Microsoft.Extensions.Logging;
 
 namespace DroneControllerApp.Interfaces
 {
