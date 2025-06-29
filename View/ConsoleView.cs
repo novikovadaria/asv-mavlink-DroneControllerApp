@@ -12,6 +12,7 @@
             Console.WriteLine(); 
         }
 
+
         public void ShowLanded()
         {
             Console.SetCursorPosition(0, 6);
