@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-namespace DroneControllerApp.View
+﻿namespace DroneControllerApp.View
 {
     public class ConsolePositionObserver : IPositionObserver
     {
