@@ -17,6 +17,8 @@ namespace DroneControllerApp.View
             _view.ShowPosition(latitude, longitude, altitude);
         }
 
+
+
         public void OnLanded()
         {
             _view.ShowLanded();
