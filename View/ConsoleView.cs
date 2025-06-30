@@ -2,6 +2,7 @@
 {
     public class ConsoleView
     {
+
         public void ShowPosition(double lat, double lon, double alt)
         {
             Console.SetCursorPosition(0, 0);
