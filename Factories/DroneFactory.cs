@@ -12,7 +12,6 @@ namespace DroneControllerApp.DroneControllerServices
         private IProtocolRouter _router;
         private IDeviceExplorer _explorer;
 
-
         private IDeviceExplorer CreateExplorer(DroneFactoryConfig config)
         {
             var protocol = Protocol.Create(builder =>
